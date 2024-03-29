@@ -49,7 +49,7 @@ namespace ams {
         }
 
         constexpr const ::SocketInitConfig LibnxSocketInitConfig = {
-            .bsdsockets_version = 1,
+            /*.bsdsockets_version = 1,*/
 
             .tcp_tx_buf_size = 0x800,
             .tcp_rx_buf_size = 0x1000,
@@ -68,7 +68,7 @@ namespace ams {
         alignas(os::MemoryPageSize) constinit u8 g_socket_tmem_buffer[GetLibnxBsdTransferMemorySize(std::addressof(LibnxSocketInitConfig))];
 
         constexpr const ::BsdInitConfig LibnxBsdInitConfig = {
-            .version             = LibnxSocketInitConfig.bsdsockets_version,
+            .version             = 1,
 
             .tmem_buffer         = g_socket_tmem_buffer,
             .tmem_buffer_size    = sizeof(g_socket_tmem_buffer),
