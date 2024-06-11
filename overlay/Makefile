@@ -37,11 +37,11 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-TARGET_VERSION := $(shell git describe --tags --dirty)
-VERSION_DEFINES	:= -DGITDESCVER="\"${TARGET_VERSION}\""
+#TARGET_VERSION := $(shell git describe --tags --dirty)
+#VERSION_DEFINES	:= -DGITDESCVER="\"${TARGET_VERSION}\""
 
 APP_TITLE	:=	ldn_mitm
-APP_VERSION :=	${TARGET_VERSION}
+APP_VERSION 	:=	1.17.0
 
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build

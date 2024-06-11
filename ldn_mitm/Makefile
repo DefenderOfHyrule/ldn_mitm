@@ -6,7 +6,8 @@ include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Atmosphere-libs/config
 #---------------------------------------------------------------------------------
 # version control constants
 #---------------------------------------------------------------------------------
-TARGET_VERSION := $(shell git describe --tags --dirty)
+TARGET_VERSION := 1.17.0
+#(shell git describe --tags --dirty)
 
 #---------------------------------------------------------------------------------
 # options for code generation
