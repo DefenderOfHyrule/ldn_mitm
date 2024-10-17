@@ -59,10 +59,10 @@ namespace ams {
             .udp_tx_buf_size = 0x2000,
             .udp_rx_buf_size = 0x2000,
 
-            .sb_efficiency = 6,
+            .sb_efficiency = 4,
 
-            .num_bsd_sessions = 4,
-            .bsd_service_type = BsdServiceType_Auto,
+            .num_bsd_sessions = 3,
+            .bsd_service_type = BsdServiceType_User,
         };
 
         alignas(os::MemoryPageSize) constinit u8 g_socket_tmem_buffer[GetLibnxBsdTransferMemorySize(std::addressof(LibnxSocketInitConfig))];
