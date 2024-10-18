@@ -176,7 +176,7 @@
             "value": {
                 "allow_debug": false,
                 "force_debug": true,
-                "force_debug_prod": true
+                "force_debug_prod": false
             }
         }
     ]
