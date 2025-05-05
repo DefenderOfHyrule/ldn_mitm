@@ -1,0 +1,132 @@
+/*
+ * Copyright (c) Atmosphère-NX
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#pragma once
+#include <vapours.hpp>
+#include <stratosphere/fssystem/fssystem_aes_ctr_storage.hpp>
+#include <stratosphere/fssystem/fssystem_bucket_tree.hpp>
+
+namespace ams::fssystem {
+
+    /* ACCURATE_TO_VERSION: Unknown */
+    class AesCtrCounterExtendedStorage : public ::ams::fs::IStorage, public ::ams::fs::impl::Newable {
+        NON_COPYABLE(AesCtrCounterExtendedStorage);
+        NON_MOVEABLE(AesCtrCounterExtendedStorage);
+        public:
+            static constexpr size_t BlockSize = crypto::Aes128CtrEncryptor::BlockSize;
+            static constexpr size_t KeySize   = crypto::Aes128CtrEncryptor::KeySize;
+            static constexpr size_t IvSize    = crypto::Aes128CtrEncryptor::IvSize;
+            static constexpr size_t NodeSize  = 16_KB;
+
+            using IAllocator = BucketTree::IAllocator;
+
+            using DecryptFunction = void(*)(void *dst, size_t dst_size, u8 index, u8 gen, const void *enc_key, size_t enc_key_size, const void *iv, size_t iv_size, const void *src, size_t src_size);
+
+            class IDecryptor {
+                public:
+                    virtual ~IDecryptor() { /* ... */ }
+                    virtual void Decrypt(void *buf, size_t buf_size, const void *enc_key, size_t enc_key_size, void *iv, size_t iv_size) = 0;
+                    virtual bool HasExternalDecryptionKey() const = 0;
+            };
+
+            struct Entry {
+                enum class Encryption : u8 {
+                    Encrypted    = 0,
+                    NotEncrypted = 1,
+                };
+
+                u8 offset[sizeof(s64)];
+                Encryption encryption_value;
+                u8 reserved[3];
+                s32 generation;
+
+                void SetOffset(s64 value) {
+                    std::memcpy(this->offset, std::addressof(value), sizeof(s64));
+                }
+
+                s64 GetOffset() const {
+                    s64 value;
+                    std::memcpy(std::addressof(value), this->offset, sizeof(s64));
+                    return value;
+                }
+            };
+            static_assert(sizeof(Entry)  == 0x10);
+            static_assert(alignof(Entry) == 4);
+            static_assert(util::is_pod<Entry>::value);
+        public:
+            static constexpr s64 QueryHeaderStorageSize() {
+                return BucketTree::QueryHeaderStorageSize();
+            }
+
+            static constexpr s64 QueryNodeStorageSize(s32 entry_count) {
+                return BucketTree::QueryNodeStorageSize(NodeSize, sizeof(Entry), entry_count);
+            }
+
+            static constexpr s64 QueryEntryStorageSize(s32 entry_count) {
+                return BucketTree::QueryEntryStorageSize(NodeSize, sizeof(Entry), entry_count);
+            }
+
+            static Result CreateExternalDecryptor(std::unique_ptr<IDecryptor> *out, DecryptFunction func, s32 key_index, s32 key_generation);
+            static Result CreateSoftwareDecryptor(std::unique_ptr<IDecryptor> *out);
+        private:
+            BucketTree m_table;
+            fs::SubStorage m_data_storage;
+            u8 m_key[KeySize];
+            u32 m_secure_value;
+            s64 m_counter_offset;
+            std::unique_ptr<IDecryptor> m_decryptor;
+        public:
+            AesCtrCounterExtendedStorage() : m_table(), m_data_storage(), m_secure_value(), m_counter_offset(), m_decryptor() { /* ... */ }
+            virtual ~AesCtrCounterExtendedStorage() { this->Finalize(); }
+
+            Result Initialize(IAllocator *allocator, const void *key, size_t key_size, u32 secure_value, s64 counter_offset, fs::SubStorage data_storage, fs::SubStorage node_storage, fs::SubStorage entry_storage, s32 entry_count, std::unique_ptr<IDecryptor> &&decryptor);
+            void Finalize();
+
+            bool IsInitialized() const { return m_table.IsInitialized(); }
+
+            virtual Result Read(s64 offset, void *buffer, size_t size) override;
+            virtual Result OperateRange(void *dst, size_t dst_size, fs::OperationId op_id, s64 offset, s64 size, const void *src, size_t src_size) override;
+
+            virtual Result GetSize(s64 *out) override {
+                AMS_ASSERT(out != nullptr);
+
+                BucketTree::Offsets offsets;
+                R_TRY(m_table.GetOffsets(std::addressof(offsets)));
+
+                *out = offsets.end_offset;
+
+                R_SUCCEED();
+            }
+
+            virtual Result Flush() override {
+                R_SUCCEED();
+            }
+
+            virtual Result Write(s64 offset, const void *buffer, size_t size) override {
+                AMS_UNUSED(offset, buffer, size);
+                R_THROW(fs::ResultUnsupportedWriteForAesCtrCounterExtendedStorage());
+            }
+
+            virtual Result SetSize(s64 size) override {
+                AMS_UNUSED(size);
+                R_THROW(fs::ResultUnsupportedSetSizeForAesCtrCounterExtendedStorage());
+            }
+
+            Result GetEntryList(Entry *out_entries, s32 *out_entry_count, s32 entry_count, s64 offset, s64 size);
+        private:
+            Result Initialize(IAllocator *allocator, const void *key, size_t key_size, u32 secure_value, fs::SubStorage data_storage, fs::SubStorage table_storage);
+    };
+
+}

@@ -1,0 +1,211 @@
+/*
+ * Copyright (c) Atmosphère-NX
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#pragma once
+#include <vapours.hpp>
+#include <stratosphere/os.hpp>
+#include <stratosphere/fs/fs_istorage.hpp>
+#include <stratosphere/fs/fs_substorage.hpp>
+#include <stratosphere/fs/fs_storage_type.hpp>
+#include <stratosphere/fssystem/fssystem_integrity_verification_storage.hpp>
+#include <stratosphere/fssystem/fssystem_block_cache_buffered_storage.hpp>
+
+namespace ams::fssystem {
+
+    /* ACCURATE_TO_VERSION: 14.3.0.0 */
+
+    struct HierarchicalIntegrityVerificationLevelInformation {
+        fs::Int64 offset;
+        fs::Int64 size;
+        s32 block_order;
+        u8 reserved[4];
+    };
+    static_assert(util::is_pod<HierarchicalIntegrityVerificationLevelInformation>::value);
+    static_assert(sizeof(HierarchicalIntegrityVerificationLevelInformation) == 0x18);
+    static_assert(alignof(HierarchicalIntegrityVerificationLevelInformation) == 0x4);
+
+    struct HierarchicalIntegrityVerificationInformation {
+        u32 max_layers;
+        HierarchicalIntegrityVerificationLevelInformation info[IntegrityMaxLayerCount - 1];
+        fs::HashSalt seed;
+
+        s64 GetLayeredHashSize() const {
+            return this->info[this->max_layers - 2].offset;
+        }
+
+        s64 GetDataOffset() const {
+            return this->info[this->max_layers - 2].offset;
+        }
+
+        s64 GetDataSize() const {
+            return this->info[this->max_layers - 2].size;
+        }
+    };
+    static_assert(util::is_pod<HierarchicalIntegrityVerificationInformation>::value);
+
+    struct HierarchicalIntegrityVerificationMetaInformation {
+        u32 magic;
+        u32 version;
+        u32 master_hash_size;
+        HierarchicalIntegrityVerificationInformation level_hash_info;
+
+        /* TODO: Format */
+    };
+    static_assert(util::is_pod<HierarchicalIntegrityVerificationMetaInformation>::value);
+
+    struct HierarchicalIntegrityVerificationSizeSet {
+        s64 control_size;
+        s64 master_hash_size;
+        s64 layered_hash_sizes[IntegrityMaxLayerCount - 2];
+    };
+    static_assert(util::is_pod<HierarchicalIntegrityVerificationSizeSet>::value);
+
+    class HierarchicalIntegrityVerificationStorageControlArea {
+        NON_COPYABLE(HierarchicalIntegrityVerificationStorageControlArea);
+        NON_MOVEABLE(HierarchicalIntegrityVerificationStorageControlArea);
+        public:
+            static constexpr size_t HashSize = crypto::Sha256Generator::HashSize;
+
+            struct InputParam {
+                size_t level_block_size[IntegrityMaxLayerCount - 1];
+            };
+            static_assert(util::is_pod<InputParam>::value);
+        private:
+            fs::SubStorage m_storage;
+            HierarchicalIntegrityVerificationMetaInformation m_meta;
+        public:
+            static Result QuerySize(HierarchicalIntegrityVerificationSizeSet *out, const InputParam &input_param, s32 layer_count, s64 data_size);
+            /* TODO Format */
+            static Result Expand(fs::SubStorage meta_storage, const HierarchicalIntegrityVerificationMetaInformation &meta);
+        public:
+            HierarchicalIntegrityVerificationStorageControlArea() { /* ... */ }
+
+            Result Initialize(fs::SubStorage meta_storage);
+            void Finalize();
+
+            u32 GetMasterHashSize() const { return m_meta.master_hash_size; }
+            void GetLevelHashInfo(HierarchicalIntegrityVerificationInformation *out) {
+                AMS_ASSERT(out != nullptr);
+                *out = m_meta.level_hash_info;
+            }
+    };
+
+    class HierarchicalIntegrityVerificationStorage : public ::ams::fs::IStorage {
+        NON_COPYABLE(HierarchicalIntegrityVerificationStorage);
+        NON_MOVEABLE(HierarchicalIntegrityVerificationStorage);
+        private:
+            friend struct HierarchicalIntegrityVerificationMetaInformation;
+        protected:
+            static constexpr s64 HashSize     = crypto::Sha256Generator::HashSize;
+            static constexpr size_t MaxLayers = IntegrityMaxLayerCount;
+        public:
+            using GenerateRandomFunction = void (*)(void *dst, size_t size);
+
+            class HierarchicalStorageInformation {
+                public:
+                    enum {
+                        MasterStorage = 0,
+                        Layer1Storage = 1,
+                        Layer2Storage = 2,
+                        Layer3Storage = 3,
+                        Layer4Storage = 4,
+                        Layer5Storage = 5,
+                        DataStorage   = 6,
+                    };
+                private:
+                    fs::SubStorage m_storages[DataStorage + 1];
+                public:
+                    void SetMasterHashStorage(fs::SubStorage s) { m_storages[MasterStorage] = s; }
+                    void SetLayer1HashStorage(fs::SubStorage s) { m_storages[Layer1Storage] = s; }
+                    void SetLayer2HashStorage(fs::SubStorage s) { m_storages[Layer2Storage] = s; }
+                    void SetLayer3HashStorage(fs::SubStorage s) { m_storages[Layer3Storage] = s; }
+                    void SetLayer4HashStorage(fs::SubStorage s) { m_storages[Layer4Storage] = s; }
+                    void SetLayer5HashStorage(fs::SubStorage s) { m_storages[Layer5Storage] = s; }
+                    void SetDataStorage(fs::SubStorage s)       { m_storages[DataStorage] = s; }
+
+                    fs::SubStorage &operator[](s32 index) {
+                        AMS_ASSERT(MasterStorage <= index && index <= DataStorage);
+                        return m_storages[index];
+                    }
+            };
+        private:
+            static GenerateRandomFunction s_generate_random;
+
+            static void SetGenerateRandomFunction(GenerateRandomFunction func) {
+                s_generate_random = func;
+            }
+        private:
+            FileSystemBufferManagerSet *m_buffers;
+            os::SdkRecursiveMutex *m_mutex;
+            IntegrityVerificationStorage m_verify_storages[MaxLayers - 1];
+            BlockCacheBufferedStorage    m_buffer_storages[MaxLayers - 1];
+            os::Semaphore *m_read_semaphore;
+            os::Semaphore *m_write_semaphore;
+            s64 m_data_size;
+            s32 m_max_layers;
+        public:
+            HierarchicalIntegrityVerificationStorage() : m_buffers(nullptr), m_mutex(nullptr), m_data_size(-1) { /* ... */ }
+            virtual ~HierarchicalIntegrityVerificationStorage() override { this->Finalize(); }
+
+            Result Initialize(const HierarchicalIntegrityVerificationInformation &info, HierarchicalStorageInformation storage, FileSystemBufferManagerSet *bufs, IHash256GeneratorFactory *hgf, bool hash_salt_enabled, os::SdkRecursiveMutex *mtx, os::Semaphore *read_sema, os::Semaphore *write_sema, int max_data_cache_entries, int max_hash_cache_entries, s8 buffer_level, bool is_writable, bool allow_cleared_blocks);
+            Result Initialize(const HierarchicalIntegrityVerificationInformation &info, HierarchicalStorageInformation storage, FileSystemBufferManagerSet *bufs, IHash256GeneratorFactory *hgf, bool hash_salt_enabled, os::SdkRecursiveMutex *mtx, int max_data_cache_entries, int max_hash_cache_entries, s8 buffer_level, bool is_writable, bool allow_cleared_blocks) {
+                R_RETURN(this->Initialize(info, storage, bufs, hgf, hash_salt_enabled, mtx, nullptr, nullptr, max_data_cache_entries, max_hash_cache_entries, buffer_level, is_writable, allow_cleared_blocks));
+            }
+
+            void Finalize();
+
+            virtual Result Read(s64 offset, void *buffer, size_t size) override;
+            virtual Result Write(s64 offset, const void *buffer, size_t size) override;
+
+            virtual Result SetSize(s64 size) override { AMS_UNUSED(size); R_THROW(fs::ResultUnsupportedSetSizeForHierarchicalIntegrityVerificationStorage()); }
+            virtual Result GetSize(s64 *out) override;
+
+            virtual Result Flush() override;
+
+            virtual Result OperateRange(void *dst, size_t dst_size, fs::OperationId op_id, s64 offset, s64 size, const void *src, size_t src_size) override;
+            using IStorage::OperateRange;
+
+            Result Commit();
+            Result OnRollback();
+
+            bool IsInitialized() const {
+                return m_data_size >= 0;
+            }
+
+            FileSystemBufferManagerSet *GetBuffers() {
+                return m_buffers;
+            }
+
+            void GetParameters(HierarchicalIntegrityVerificationStorageControlArea::InputParam *out) const {
+                AMS_ASSERT(out != nullptr);
+                for (auto level = 0; level <= m_max_layers - 2; ++level) {
+                    out->level_block_size[level] = static_cast<size_t>(m_verify_storages[level].GetBlockSize());
+                }
+            }
+
+            s64 GetL1HashVerificationBlockSize() const {
+                return m_verify_storages[m_max_layers - 2].GetBlockSize();
+            }
+
+            fs::SubStorage GetL1HashStorage() {
+                return fs::SubStorage(std::addressof(m_buffer_storages[m_max_layers - 3]), 0, util::DivideUp(m_data_size, this->GetL1HashVerificationBlockSize()));
+            }
+        public:
+            static constexpr s8 GetDefaultDataCacheBufferLevel(u32 max_layers) {
+                return 16 + max_layers - 2;
+            }
+    };
+
+}

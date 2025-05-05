@@ -1,0 +1,558 @@
+/*
+ * Copyright (c) Atmosphère-NX
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#include <stratosphere.hpp>
+
+namespace ams::fs {
+
+    namespace {
+
+        Result ConvertNcaCorruptedResult(Result res) {
+            AMS_ASSERT(fs::ResultNcaCorrupted::Includes(res));
+
+            R_TRY_CATCH(res) {
+                R_CONVERT(fs::ResultInvalidNcaFileSystemType,                   fs::ResultInvalidRomNcaFileSystemType())
+                R_CONVERT(fs::ResultInvalidAcidFileSize,                        fs::ResultInvalidRomAcidFileSize())
+                R_CONVERT(fs::ResultInvalidAcidSize,                            fs::ResultInvalidRomAcidSize())
+                R_CONVERT(fs::ResultInvalidAcid,                                fs::ResultInvalidRomAcid())
+                R_CONVERT(fs::ResultAcidVerificationFailed,                     fs::ResultRomAcidVerificationFailed())
+                R_CONVERT(fs::ResultInvalidNcaSignature,                        fs::ResultInvalidRomNcaSignature())
+                R_CONVERT(fs::ResultNcaHeaderSignature1VerificationFailed,      fs::ResultRomNcaHeaderSignature1VerificationFailed())
+                R_CONVERT(fs::ResultNcaHeaderSignature2VerificationFailed,      fs::ResultRomNcaHeaderSignature2VerificationFailed())
+                R_CONVERT(fs::ResultNcaFsHeaderHashVerificationFailed,          fs::ResultRomNcaFsHeaderHashVerificationFailed())
+                R_CONVERT(fs::ResultInvalidNcaKeyIndex,                         fs::ResultInvalidRomNcaKeyIndex())
+                R_CONVERT(fs::ResultInvalidNcaFsHeaderHashType,                 fs::ResultInvalidRomNcaFsHeaderHashType())
+                R_CONVERT(fs::ResultInvalidNcaFsHeaderEncryptionType,           fs::ResultInvalidRomNcaFsHeaderEncryptionType())
+                R_CONVERT(fs::ResultInvalidHierarchicalSha256BlockSize,         fs::ResultInvalidRomHierarchicalSha256BlockSize())
+                R_CONVERT(fs::ResultInvalidHierarchicalSha256LayerCount,        fs::ResultInvalidRomHierarchicalSha256LayerCount())
+                R_CONVERT(fs::ResultHierarchicalSha256BaseStorageTooLarge,      fs::ResultRomHierarchicalSha256BaseStorageTooLarge())
+                R_CONVERT(fs::ResultHierarchicalSha256HashVerificationFailed,   fs::ResultRomHierarchicalSha256HashVerificationFailed())
+                R_CATCH_ALL() { /* ... */ }
+            } R_END_TRY_CATCH;
+
+            AMS_ASSERT(false);
+            R_THROW(fs::ResultNcaCorrupted());
+        }
+
+        Result ConvertIntegrityVerificationStorageCorruptedResult(Result res) {
+            AMS_ASSERT(fs::ResultIntegrityVerificationStorageCorrupted::Includes(res));
+
+            R_TRY_CATCH(res) {
+                R_CONVERT(fs::ResultIncorrectIntegrityVerificationMagic,                fs::ResultIncorrectRomIntegrityVerificationMagic())
+                R_CONVERT(fs::ResultInvalidZeroHash,                                    fs::ResultInvalidRomZeroHash())
+                R_CONVERT(fs::ResultNonRealDataVerificationFailed,                      fs::ResultRomNonRealDataVerificationFailed())
+                R_CONVERT(fs::ResultInvalidHierarchicalIntegrityVerificationLayerCount, fs::ResultInvalidRomHierarchicalIntegrityVerificationLayerCount())
+                R_CONVERT(fs::ResultClearedRealDataVerificationFailed,                  fs::ResultClearedRomRealDataVerificationFailed())
+                R_CONVERT(fs::ResultUnclearedRealDataVerificationFailed,                fs::ResultUnclearedRomRealDataVerificationFailed())
+                R_CATCH_ALL() { /* ... */ }
+            } R_END_TRY_CATCH;
+
+            AMS_ASSERT(false);
+            R_THROW(fs::ResultIntegrityVerificationStorageCorrupted());
+        }
+
+        Result ConvertBuiltInStorageCorruptedResult(Result res) {
+            AMS_ASSERT(fs::ResultBuiltInStorageCorrupted::Includes(res));
+
+            R_TRY_CATCH(res) {
+                R_CONVERT(fs::ResultGptHeaderVerificationFailed, fs::ResultRomGptHeaderVerificationFailed())
+                R_CATCH_ALL() { /* ... */ }
+            } R_END_TRY_CATCH;
+
+            AMS_ASSERT(false);
+            R_THROW(fs::ResultBuiltInStorageCorrupted());
+        }
+
+        Result ConvertPartitionFileSystemCorruptedResult(Result res) {
+            AMS_ASSERT(fs::ResultPartitionFileSystemCorrupted::Includes(res));
+
+            R_TRY_CATCH(res) {
+                R_CONVERT(fs::ResultInvalidSha256PartitionHashTarget,           fs::ResultInvalidRomSha256PartitionHashTarget())
+                R_CONVERT(fs::ResultSha256PartitionHashVerificationFailed,      fs::ResultRomSha256PartitionHashVerificationFailed())
+                R_CONVERT(fs::ResultPartitionSignatureVerificationFailed,       fs::ResultRomPartitionSignatureVerificationFailed())
+                R_CONVERT(fs::ResultSha256PartitionSignatureVerificationFailed, fs::ResultRomSha256PartitionSignatureVerificationFailed())
+                R_CONVERT(fs::ResultInvalidPartitionEntryOffset,                fs::ResultInvalidRomPartitionEntryOffset())
+                R_CONVERT(fs::ResultInvalidSha256PartitionMetaDataSize,         fs::ResultInvalidRomSha256PartitionMetaDataSize())
+                R_CATCH_ALL() { /* ... */ }
+            } R_END_TRY_CATCH;
+
+            AMS_ASSERT(false);
+            R_THROW(fs::ResultPartitionFileSystemCorrupted());
+        }
+
+        Result ConvertFatFileSystemCorruptedResult(Result res) {
+            AMS_ASSERT(fs::ResultFatFileSystemCorrupted::Includes(res));
+
+            R_RETURN(res);
+        }
+
+        Result ConvertHostFileSystemCorruptedResult(Result res) {
+            AMS_ASSERT(fs::ResultHostFileSystemCorrupted::Includes(res));
+
+            R_TRY_CATCH(res) {
+                R_CONVERT(fs::ResultHostEntryCorrupted,    fs::ResultRomHostEntryCorrupted())
+                R_CONVERT(fs::ResultHostFileDataCorrupted, fs::ResultRomHostFileDataCorrupted())
+                R_CONVERT(fs::ResultHostFileCorrupted,     fs::ResultRomHostFileCorrupted())
+                R_CONVERT(fs::ResultInvalidHostHandle,     fs::ResultInvalidRomHostHandle())
+                R_CATCH_ALL() { /* ... */ }
+            } R_END_TRY_CATCH;
+
+            AMS_ASSERT(false);
+            R_THROW(fs::ResultHostFileSystemCorrupted());
+        }
+
+        Result ConvertDatabaseCorruptedResult(Result res) {
+            AMS_ASSERT(fs::ResultDatabaseCorrupted::Includes(res));
+
+            R_TRY_CATCH(res) {
+                R_CONVERT(fs::ResultInvalidAllocationTableBlock,     fs::ResultInvalidRomAllocationTableBlock())
+                R_CONVERT(fs::ResultInvalidKeyValueListElementIndex, fs::ResultInvalidRomKeyValueListElementIndex())
+                R_CATCH_ALL() { /* ... */ }
+            } R_END_TRY_CATCH;
+
+            AMS_ASSERT(false);
+            R_THROW(fs::ResultDatabaseCorrupted());
+        }
+
+        Result ConvertRomFsResult(Result res) {
+            R_TRY_CATCH(res) {
+                R_CONVERT(fs::ResultUnsupportedVersion,                    fs::ResultUnsupportedRomVersion())
+                R_CONVERT(fs::ResultNcaCorrupted,                          ConvertNcaCorruptedResult(res))
+                R_CONVERT(fs::ResultIntegrityVerificationStorageCorrupted, ConvertIntegrityVerificationStorageCorruptedResult(res))
+                R_CONVERT(fs::ResultBuiltInStorageCorrupted,               ConvertBuiltInStorageCorruptedResult(res))
+                R_CONVERT(fs::ResultPartitionFileSystemCorrupted,          ConvertPartitionFileSystemCorruptedResult(res))
+                R_CONVERT(fs::ResultFatFileSystemCorrupted,                ConvertFatFileSystemCorruptedResult(res))
+                R_CONVERT(fs::ResultHostFileSystemCorrupted,               ConvertHostFileSystemCorruptedResult(res))
+                R_CONVERT(fs::ResultDatabaseCorrupted,                     ConvertDatabaseCorruptedResult(res))
+                R_CONVERT(fs::ResultNotFound,                              fs::ResultPathNotFound())
+                R_CONVERT(fs::ResultPermissionDenied,                      fs::ResultTargetLocked())
+                R_CONVERT(fs::ResultIncompatiblePath,                      fs::ResultPathNotFound())
+            } R_END_TRY_CATCH;
+
+            R_SUCCEED();
+        }
+
+        Result ReadFile(IStorage *storage, s64 offset, void *buffer, size_t size) {
+            AMS_ASSERT(storage != nullptr);
+            AMS_ASSERT(offset >= 0);
+            AMS_ASSERT(buffer != nullptr || size == 0);
+
+            R_RETURN(ConvertRomFsResult(storage->Read(offset, buffer, size)));
+        }
+
+        Result ReadFileHeader(IStorage *storage, RomFileSystemInformation *out) {
+            AMS_ASSERT(storage != nullptr);
+            AMS_ASSERT(out != nullptr);
+
+            R_RETURN(ReadFile(storage, 0, out, sizeof(*out)));
+        }
+
+        constexpr size_t CalculateRequiredWorkingMemorySize(const RomFileSystemInformation &header) {
+            const size_t needed_size = header.directory_bucket_size + header.directory_entry_size + header.file_bucket_size + header.file_entry_size;
+            return util::AlignUp(needed_size, 8);
+        }
+
+        class RomFsFile : public fsa::IFile, public impl::Newable {
+            private:
+                RomFsFileSystem *m_parent;
+                s64 m_start;
+                s64 m_end;
+            public:
+                RomFsFile(RomFsFileSystem *p, s64 s, s64 e) : m_parent(p), m_start(s), m_end(e) { /* ... */ }
+                virtual ~RomFsFile() { /* ... */ }
+
+                Result VerifyArguments(size_t *out, s64 offset, void *buf, size_t size, const fs::ReadOption &option) {
+                    R_TRY(DryRead(out, offset, size, option, fs::OpenMode_Read));
+
+                    AMS_ASSERT(this->GetStorage() != nullptr);
+                    AMS_ASSERT(offset >= 0);
+                    AMS_ASSERT(buf != nullptr || size == 0);
+                    AMS_UNUSED(buf);
+
+                    R_SUCCEED();
+                }
+
+                Result ConvertResult(Result res) const {
+                    R_RETURN(ConvertRomFsResult(res));
+                }
+
+                s64 GetOffset() const {
+                    return m_start;
+                }
+
+                s64 GetSize() const {
+                    return m_end - m_start;
+                }
+
+                IStorage *GetStorage() {
+                    return m_parent->GetBaseStorage();
+                }
+            public:
+                virtual Result DoRead(size_t *out, s64 offset, void *buffer, size_t size, const fs::ReadOption &option) override {
+                    size_t read_size = 0;
+                    R_TRY(this->VerifyArguments(std::addressof(read_size), offset, buffer, size, option));
+
+                    R_TRY(this->ConvertResult(this->GetStorage()->Read(offset + m_start, buffer, size)));
+                    *out = read_size;
+
+                    R_SUCCEED();
+                }
+
+                virtual Result DoGetSize(s64 *out) override {
+                    *out = this->GetSize();
+                    R_SUCCEED();
+                }
+
+                virtual Result DoFlush() override {
+                    R_SUCCEED();
+                }
+
+                virtual Result DoWrite(s64 offset, const void *buffer, size_t size, const fs::WriteOption &option) override {
+                    AMS_UNUSED(offset, buffer, size, option);
+                    R_THROW(fs::ResultUnsupportedWriteForRomFsFile());
+                }
+
+                virtual Result DoSetSize(s64 size) override {
+                    AMS_UNUSED(size);
+                    R_THROW(fs::ResultUnsupportedWriteForRomFsFile());
+                }
+
+                virtual Result DoOperateRange(void *dst, size_t dst_size, fs::OperationId op_id, s64 offset, s64 size, const void *src, size_t src_size) override {
+                    switch (op_id) {
+                        case OperationId::Invalidate:
+                            R_RETURN(this->GetStorage()->OperateRange(fs::OperationId::Invalidate, 0, std::numeric_limits<s64>::max()));
+                        case OperationId::QueryRange:
+                            {
+                                R_UNLESS(offset >= 0,               fs::ResultInvalidOffset());
+                                R_UNLESS(this->GetSize() >= offset, fs::ResultOutOfRange());
+
+                                auto operate_size = size;
+                                if (offset + operate_size > this->GetSize() || offset + operate_size < offset) {
+                                    operate_size = this->GetSize() - offset;
+                                }
+
+                                R_RETURN(this->GetStorage()->OperateRange(dst, dst_size, op_id, m_start + offset, operate_size, src, src_size));
+                            }
+                        default:
+                            R_THROW(fs::ResultUnsupportedOperateRangeForRomFsFile());
+                    }
+                }
+            public:
+                virtual sf::cmif::DomainObjectId GetDomainObjectId() const override {
+                    AMS_ABORT();
+                }
+        };
+
+        class RomFsDirectory : public fsa::IDirectory, public impl::Newable {
+            private:
+                using FindPosition = RomFsFileSystem::RomFileTable::FindPosition;
+            private:
+                RomFsFileSystem *m_parent;
+                FindPosition m_current_find;
+                FindPosition m_first_find;
+                fs::OpenDirectoryMode m_mode;
+            public:
+                RomFsDirectory(RomFsFileSystem *p, const FindPosition &f, fs::OpenDirectoryMode m) : m_parent(p), m_current_find(f), m_first_find(f), m_mode(m) { /* ... */ }
+                virtual ~RomFsDirectory() override { /* ... */ }
+            public:
+                virtual Result DoRead(s64 *out_count, DirectoryEntry *out_entries, s64 max_entries) override {
+                    R_RETURN(this->ReadInternal(out_count, std::addressof(m_current_find), out_entries, max_entries));
+                }
+
+                virtual Result DoGetEntryCount(s64 *out) override {
+                    FindPosition find = m_first_find;
+                    R_RETURN(this->ReadInternal(out, std::addressof(find), nullptr, 0));
+                }
+            private:
+                Result ReadInternal(s64 *out_count, FindPosition *find, DirectoryEntry *out_entries, s64 max_entries) {
+                    AMS_ASSERT(out_count != nullptr);
+                    AMS_ASSERT(find != nullptr);
+
+                    constexpr size_t NameBufferSize = fs::EntryNameLengthMax + 1;
+                    char *name_buf = static_cast<char *>(::ams::fs::impl::Allocate(NameBufferSize));
+                    R_UNLESS(name_buf != nullptr, fs::ResultAllocationMemoryFailedInRomFsFileSystemE());
+                    ON_SCOPE_EXIT { ::ams::fs::impl::Deallocate(name_buf, NameBufferSize); };
+
+                    s32 i = 0;
+
+                    if (m_mode & fs::OpenDirectoryMode_Directory) {
+                        while (i < max_entries || out_entries == nullptr) {
+                            R_TRY_CATCH(m_parent->GetRomFileTable()->FindNextDirectory(name_buf, find, NameBufferSize)) {
+                                R_CATCH(fs::ResultDbmFindFinished) { break; }
+                            } R_END_TRY_CATCH;
+
+                            if (out_entries) {
+                                const size_t name_len = util::Strnlen(name_buf, NameBufferSize);
+                                R_UNLESS(name_len < NameBufferSize, fs::ResultTooLongPath());
+                                std::memcpy(out_entries[i].name, name_buf, name_len);
+                                out_entries[i].name[name_len] = '\x00';
+                                out_entries[i].type = fs::DirectoryEntryType_Directory;
+                                out_entries[i].file_size = 0;
+                            }
+
+                            i++;
+                        }
+                    }
+
+                    if (m_mode & fs::OpenDirectoryMode_File) {
+                        while (i < max_entries || out_entries == nullptr) {
+                            auto file_pos = find->next_file;
+
+                            R_TRY_CATCH(m_parent->GetRomFileTable()->FindNextFile(name_buf, find, NameBufferSize)) {
+                                R_CATCH(fs::ResultDbmFindFinished) { break; }
+                            } R_END_TRY_CATCH;
+
+                            if (out_entries) {
+                                const size_t name_len = util::Strnlen(name_buf, NameBufferSize);
+                                R_UNLESS(name_len < NameBufferSize, fs::ResultTooLongPath());
+                                std::memcpy(out_entries[i].name, name_buf, name_len);
+                                out_entries[i].name[name_len] = '\x00';
+                                out_entries[i].type = fs::DirectoryEntryType_File;
+
+                                RomFsFileSystem::RomFileTable::FileInfo file_info;
+                                R_TRY(m_parent->GetRomFileTable()->OpenFile(std::addressof(file_info), m_parent->GetRomFileTable()->PositionToFileId(file_pos)));
+                                out_entries[i].file_size = file_info.size.Get();
+                            }
+
+                            i++;
+                        }
+                    }
+
+                    *out_count = i;
+                    R_SUCCEED();
+                }
+            public:
+                virtual sf::cmif::DomainObjectId GetDomainObjectId() const override {
+                    AMS_ABORT();
+                }
+        };
+
+    }
+
+
+    RomFsFileSystem::RomFsFileSystem() : m_base_storage() {
+        /* ... */
+    }
+
+    RomFsFileSystem::~RomFsFileSystem() {
+        /* ... */
+    }
+
+    Result RomFsFileSystem::GetRequiredWorkingMemorySize(size_t *out, IStorage *storage) {
+        RomFileSystemInformation header;
+        R_TRY(ReadFileHeader(storage, std::addressof(header)));
+
+        *out = CalculateRequiredWorkingMemorySize(header);
+        R_SUCCEED();
+    }
+
+    Result RomFsFileSystem::Initialize(IStorage *base, void *work, size_t work_size, bool use_cache) {
+        AMS_ABORT_UNLESS(!use_cache || work != nullptr);
+        AMS_ABORT_UNLESS(base != nullptr);
+
+        /* Read the header. */
+        RomFileSystemInformation header;
+        R_TRY(ReadFileHeader(base, std::addressof(header)));
+
+        /* Set up our storages. */
+        if (use_cache) {
+            const size_t needed_size = CalculateRequiredWorkingMemorySize(header);
+            R_UNLESS(work_size >= needed_size, fs::ResultPreconditionViolation());
+
+            u8 *buf = static_cast<u8 *>(work);
+            auto dir_bucket_buf  = buf; buf += header.directory_bucket_size;
+            auto dir_entry_buf   = buf; buf += header.directory_entry_size;
+            auto file_bucket_buf = buf; buf += header.file_bucket_size;
+            auto file_entry_buf  = buf; buf += header.file_entry_size;
+
+            R_TRY(ReadFile(base, header.directory_bucket_offset, dir_bucket_buf,  header.directory_bucket_size));
+            R_TRY(ReadFile(base, header.directory_entry_offset,  dir_entry_buf,   header.directory_entry_size));
+            R_TRY(ReadFile(base, header.file_bucket_offset,      file_bucket_buf, header.file_bucket_size));
+            R_TRY(ReadFile(base, header.file_entry_offset,       file_entry_buf,  header.file_entry_size));
+
+            m_dir_bucket_storage.reset(new MemoryStorage(dir_bucket_buf, header.directory_bucket_size));
+            m_dir_entry_storage.reset(new MemoryStorage(dir_entry_buf, header.directory_entry_size));
+            m_file_bucket_storage.reset(new MemoryStorage(file_bucket_buf, header.file_bucket_size));
+            m_file_entry_storage.reset(new MemoryStorage(file_entry_buf, header.file_entry_size));
+        } else {
+            m_dir_bucket_storage.reset(new SubStorage(base, header.directory_bucket_offset, header.directory_bucket_size));
+            m_dir_entry_storage.reset(new SubStorage(base, header.directory_entry_offset, header.directory_entry_size));
+            m_file_bucket_storage.reset(new SubStorage(base, header.file_bucket_offset, header.file_bucket_size));
+            m_file_entry_storage.reset(new SubStorage(base, header.file_entry_offset, header.file_entry_size));
+        }
+
+        /* Ensure we allocated storages successfully. */
+        R_UNLESS(m_dir_bucket_storage  != nullptr, fs::ResultAllocationMemoryFailedInRomFsFileSystemA());
+        R_UNLESS(m_dir_entry_storage   != nullptr, fs::ResultAllocationMemoryFailedInRomFsFileSystemA());
+        R_UNLESS(m_file_bucket_storage != nullptr, fs::ResultAllocationMemoryFailedInRomFsFileSystemA());
+        R_UNLESS(m_file_entry_storage  != nullptr, fs::ResultAllocationMemoryFailedInRomFsFileSystemA());
+
+        /* Initialize the rom table. */
+        {
+
+            SubStorage db(m_dir_bucket_storage.get(),  0, header.directory_bucket_size);
+            SubStorage de(m_dir_entry_storage.get(),   0, header.directory_entry_size);
+            SubStorage fb(m_file_bucket_storage.get(), 0, header.file_bucket_size);
+            SubStorage fe(m_file_entry_storage.get(),  0, header.file_entry_size);
+            R_TRY(m_rom_file_table.Initialize(db, de, fb, fe));
+        }
+
+        /* Set members. */
+        m_entry_size = header.body_offset;
+        m_base_storage = base;
+        R_SUCCEED();
+    }
+
+    Result RomFsFileSystem::Initialize(std::unique_ptr<IStorage>&& base, void *work, size_t work_size, bool use_cache) {
+        m_unique_storage = std::move(base);
+        R_RETURN(this->Initialize(m_unique_storage.get(), work, work_size, use_cache));
+    }
+
+    Result RomFsFileSystem::GetFileInfo(RomFileTable::FileInfo *out, const char *path) {
+        R_TRY_CATCH(m_rom_file_table.OpenFile(out, path)) {
+            R_CONVERT(fs::ResultDbmNotFound,         fs::ResultPathNotFound());
+            R_CONVERT(fs::ResultDbmInvalidOperation, fs::ResultPathNotFound());
+        } R_END_TRY_CATCH;
+        R_SUCCEED();
+    }
+
+    IStorage *RomFsFileSystem::GetBaseStorage() {
+        return m_base_storage;
+    }
+
+    RomFsFileSystem::RomFileTable *RomFsFileSystem::GetRomFileTable() {
+        return std::addressof(m_rom_file_table);
+    }
+
+    Result RomFsFileSystem::GetFileBaseOffset(s64 *out, const char *path) {
+        AMS_ABORT_UNLESS(out != nullptr);
+        AMS_ABORT_UNLESS(path != nullptr);
+
+        RomFileTable::FileInfo info;
+        R_TRY(this->GetFileInfo(std::addressof(info), path));
+        *out = m_entry_size + info.offset.Get();
+        R_SUCCEED();
+    }
+
+    Result RomFsFileSystem::DoCreateFile(const fs::Path &path, s64 size, int flags) {
+        AMS_UNUSED(path, size, flags);
+        R_THROW(fs::ResultUnsupportedWriteForRomFsFileSystem());
+    }
+
+    Result RomFsFileSystem::DoDeleteFile(const fs::Path &path) {
+        AMS_UNUSED(path);
+        R_THROW(fs::ResultUnsupportedWriteForRomFsFileSystem());
+    }
+
+    Result RomFsFileSystem::DoCreateDirectory(const fs::Path &path) {
+        AMS_UNUSED(path);
+        R_THROW(fs::ResultUnsupportedWriteForRomFsFileSystem());
+    }
+
+    Result RomFsFileSystem::DoDeleteDirectory(const fs::Path &path) {
+        AMS_UNUSED(path);
+        R_THROW(fs::ResultUnsupportedWriteForRomFsFileSystem());
+    }
+
+    Result RomFsFileSystem::DoDeleteDirectoryRecursively(const fs::Path &path) {
+        AMS_UNUSED(path);
+        R_THROW(fs::ResultUnsupportedWriteForRomFsFileSystem());
+    }
+
+    Result RomFsFileSystem::DoRenameFile(const fs::Path &old_path, const fs::Path &new_path) {
+        AMS_UNUSED(old_path, new_path);
+        R_THROW(fs::ResultUnsupportedWriteForRomFsFileSystem());
+    }
+
+    Result RomFsFileSystem::DoRenameDirectory(const fs::Path &old_path, const fs::Path &new_path) {
+        AMS_UNUSED(old_path, new_path);
+        R_THROW(fs::ResultUnsupportedWriteForRomFsFileSystem());
+    }
+
+    Result RomFsFileSystem::DoGetEntryType(fs::DirectoryEntryType *out, const fs::Path &path) {
+        HierarchicalRomFileTable::FindPosition find_pos;
+        R_TRY_CATCH(m_rom_file_table.FindOpen(std::addressof(find_pos), path.GetString())) {
+            R_CONVERT(fs::ResultDbmNotFound, fs::ResultPathNotFound())
+            R_CATCH(fs::ResultDbmInvalidOperation) {
+                *out = fs::DirectoryEntryType_File;
+                R_SUCCEED();
+            }
+        } R_END_TRY_CATCH;
+
+        *out = fs::DirectoryEntryType_Directory;
+        R_SUCCEED();
+    }
+
+    Result RomFsFileSystem::DoOpenFile(std::unique_ptr<fs::fsa::IFile> *out_file, const fs::Path &path, fs::OpenMode mode) {
+        AMS_ASSERT(out_file != nullptr);
+
+        R_UNLESS((mode & fs::OpenMode_All) == fs::OpenMode_Read, fs::ResultInvalidOpenMode());
+
+        RomFileTable::FileInfo file_info{};
+        R_TRY(this->GetFileInfo(std::addressof(file_info), path.GetString()));
+
+        auto file = std::make_unique<RomFsFile>(this, m_entry_size + file_info.offset.Get(), m_entry_size + file_info.offset.Get() + file_info.size.Get());
+        R_UNLESS(file != nullptr, fs::ResultAllocationMemoryFailedInRomFsFileSystemB());
+
+        *out_file = std::move(file);
+        R_SUCCEED();
+    }
+
+    Result RomFsFileSystem::DoOpenDirectory(std::unique_ptr<fs::fsa::IDirectory> *out_dir, const fs::Path &path, fs::OpenDirectoryMode mode) {
+        AMS_ASSERT(out_dir != nullptr);
+
+        RomFileTable::FindPosition find;
+        R_TRY_CATCH(m_rom_file_table.FindOpen(std::addressof(find), path.GetString())) {
+            R_CONVERT(fs::ResultDbmNotFound,         fs::ResultPathNotFound())
+            R_CONVERT(fs::ResultDbmInvalidOperation, fs::ResultPathNotFound())
+        } R_END_TRY_CATCH;
+
+        auto dir = std::make_unique<RomFsDirectory>(this, find, mode);
+        R_UNLESS(dir != nullptr, fs::ResultAllocationMemoryFailedInRomFsFileSystemC());
+
+        *out_dir = std::move(dir);
+        R_SUCCEED();
+    }
+
+    Result RomFsFileSystem::DoCommit() {
+        R_SUCCEED();
+    }
+
+    Result RomFsFileSystem::DoGetFreeSpaceSize(s64 *out, const fs::Path &path) {
+        AMS_UNUSED(path);
+
+        *out = 0;
+        R_SUCCEED();
+    }
+
+    Result RomFsFileSystem::DoGetTotalSpaceSize(s64 *out, const fs::Path &path) {
+        AMS_UNUSED(out, path);
+        R_THROW(fs::ResultUnsupportedGetTotalSpaceSizeForRomFsFileSystem());
+    }
+
+    Result RomFsFileSystem::DoCleanDirectoryRecursively(const fs::Path &path) {
+        AMS_UNUSED(path);
+        R_THROW(fs::ResultUnsupportedWriteForRomFsFileSystem());
+    }
+
+    Result RomFsFileSystem::DoCommitProvisionally(s64 counter) {
+        AMS_UNUSED(counter);
+        R_THROW(fs::ResultUnsupportedCommitProvisionallyForRomFsFileSystem());
+    }
+
+    Result RomFsFileSystem::DoRollback() {
+        R_SUCCEED();
+    }
+}
