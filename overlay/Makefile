@@ -41,7 +41,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #VERSION_DEFINES	:= -DGITDESCVER="\"${TARGET_VERSION}\""
 
 APP_TITLE	:=	ldn_mitm
-APP_VERSION 	:=	1.19.0
+APP_VERSION 	:=	1.19.1
 
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
