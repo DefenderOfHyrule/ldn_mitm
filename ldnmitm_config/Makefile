@@ -8,10 +8,7 @@ TOPDIR ?= $(CURDIR)
 include $(DEVKITPRO)/libnx/switch_rules
 
 GITREV := $(shell git rev-parse HEAD 2>/dev/null | cut -c1-8)
-VERSION := v2.0.3
-ifneq ($(strip $(GITREV)),)
-VERSION := $(VERSION)-$(GITREV)
-endif
+VERSION := v2.0.4
 
 APP_AUTHOR  :=  DefenderOfHyrule
 APP_TITLE   :=  ldnmitm cfg
