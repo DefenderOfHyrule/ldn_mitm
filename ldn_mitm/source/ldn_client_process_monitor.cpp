@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Atmosphère-NX
+ * Copyright (c) 2018 Atmosphère-NX
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,14 +13,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#pragma once
 
-#define ATMOSPHERE_RELEASE_VERSION_MAJOR    1
-#define ATMOSPHERE_RELEASE_VERSION_MINOR    10
-#define ATMOSPHERE_RELEASE_VERSION_MICRO    0
+#include "ldn_client_process_monitor.hpp"
 
-#define ATMOSPHERE_RELEASE_VERSION ATMOSPHERE_RELEASE_VERSION_MAJOR, ATMOSPHERE_RELEASE_VERSION_MINOR, ATMOSPHERE_RELEASE_VERSION_MICRO
+namespace ams::mitm::ldn {
+    Result IClientProcessMonitor::RegisterClient(const sf::ClientProcessId &client_process_id) {
+        LogFormat("IClientProcessMonitor::RegisterClient pid: %" PRIu64, client_process_id.GetValue());
+        
+        // stub for 18.0.0+
 
-#define ATMOSPHERE_SUPPORTED_HOS_VERSION_MAJOR 21
-#define ATMOSPHERE_SUPPORTED_HOS_VERSION_MINOR 0
-#define ATMOSPHERE_SUPPORTED_HOS_VERSION_MICRO 0
+        return ResultSuccess();
+    }
+}
