@@ -17,6 +17,7 @@
         AMS_SF_METHOD_INFO(C, H, 102, Result, Scan, 				   (ams::sf::Out<u32> count, ams::sf::OutAutoSelectArray<ams::mitm::ldn::NetworkInfo> buffer, u16 channel, ams::mitm::ldn::ScanFilter filter), 	(count, buffer, channel, filter))	\
  /*nyi*/AMS_SF_METHOD_INFO(C, H, 103, Result, ScanPrivate, 			   (), 																																			())									\
  /*nyi*/AMS_SF_METHOD_INFO(C, H, 104, Result, SetWirelessControllerRestriction, (), 																																			())									\
+ /*nyi*/AMS_SF_METHOD_INFO(C, H, 106, Result, SetProtocol, 			   (u32 protocol), 																																(protocol))							\
         AMS_SF_METHOD_INFO(C, H, 200, Result, OpenAccessPoint, 		   (), 																																			())									\
         AMS_SF_METHOD_INFO(C, H, 201, Result, CloseAccessPoint, 		   (), 																																			())									\
         AMS_SF_METHOD_INFO(C, H, 202, Result, CreateNetwork, 			   (ams::mitm::ldn::CreateNetworkConfig data), 																									(data))								\

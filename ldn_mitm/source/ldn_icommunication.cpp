@@ -186,6 +186,25 @@ namespace ams::mitm::ldn {
         return 0;
     }
 
+    Result ICommunicationService::SetProtocol(u32 protocol) {
+        LogFormat("SetProtocol called, protocol=%u", protocol);
+        
+        // Normalize protocol according to Nintendo documentation
+        // SDK passes 1 when input protocol is 0 or 1
+        // Value 3 is passed directly if specified
+        if (protocol == 0 || protocol == 1) {
+            this->m_protocol = 1;  // NX protocol
+        } else if (protocol == 3) {
+            this->m_protocol = 3;  // S2 protocol (Switch 2)
+        } else {
+            LogFormat("SetProtocol: Invalid protocol %u, defaulting to 1", protocol);
+            this->m_protocol = 1;
+        }
+        
+        LogFormat("SetProtocol: Protocol set to %u", this->m_protocol);
+        return 0;
+    }
+
     Result ICommunicationService::ScanPrivate() {
         return 0;
     }

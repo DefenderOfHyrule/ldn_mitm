@@ -29,8 +29,9 @@ namespace ams::mitm::ldn {
             LANDiscovery lanDiscovery;
             os::SystemEvent *state_event;
             u64 error_state;
+            u32 m_protocol;
         public:
-            ICommunicationService() : state_event(nullptr), error_state(0) {
+            ICommunicationService() : state_event(nullptr), error_state(0), m_protocol(1) {
                 LogFormat("ICommunicationService");
                 /* ... */
             };
@@ -69,6 +70,7 @@ namespace ams::mitm::ldn {
 
             /*nyi----------------------------------------------------------------------------*/
             Result SetWirelessControllerRestriction();
+            Result SetProtocol(u32 protocol);
             Result ScanPrivate();
             Result CreateNetworkPrivate();
             Result Reject();
