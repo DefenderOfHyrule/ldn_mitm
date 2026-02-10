@@ -4,6 +4,7 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include "ipinfo.hpp"
+#include "nifm_manager.hpp"
 
 namespace ams::mitm::ldn {
 
@@ -128,6 +129,12 @@ namespace ams::mitm::ldn {
     }
 
     u32 LDUdpSocket::getBroadcast() {
+        ScopedNifmSession session;
+        if (!session.IsSucceeded()) {
+            LogFormat("Broadcast failed to acquire nifm session");
+            return 0xFFFFFFFF;
+        }
+        
         u32 address, netmask, gateway, primary_dns, secondary_dns;
         Result rc = nifmGetCurrentIpConfigInfo(&address, &netmask, &gateway, &primary_dns, &secondary_dns);
         address = ntohl(address);
@@ -225,8 +232,14 @@ namespace ams::mitm::ldn {
         mac->raw[0] = 0x02;
         mac->raw[1] = 0x00;
 
+        ScopedNifmSession session;
+        Result rc = session.GetResult();
+        if (R_FAILED(rc)) {
+            return rc;
+        }
+
         u32 ip;
-        Result rc = nifmGetCurrentIpAddress(&ip);
+        rc = nifmGetCurrentIpAddress(&ip);
         if (R_SUCCEEDED(rc)) {
             ip = ntohl(ip);
             memcpy(mac->raw + 2, &ip, sizeof(ip));
@@ -521,8 +534,14 @@ namespace ams::mitm::ldn {
     }
 
     Result LANDiscovery::getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u16 localCommunicationVersion) {
+        ScopedNifmSession session;
+        Result rc = session.GetResult();
+        if (R_FAILED(rc)) {
+            return rc;
+        }
+
         u32 ipAddress;
-        Result rc = nifmGetCurrentIpAddress(&ipAddress);
+        rc = nifmGetCurrentIpAddress(&ipAddress);
         if (R_FAILED(rc))
         {
             return rc;
@@ -719,6 +738,7 @@ namespace ams::mitm::ldn {
             this->resetStations();
             this->initialized = false;
 
+            // perform cleanup operations with the session being held
             rc = nifmRequestCancel(&request);
             if (R_FAILED(rc))
             {
@@ -731,12 +751,17 @@ namespace ams::mitm::ldn {
             {
                 LogFormat("final nifmGetCurrentProfile failed: %x", rc);
             }
-
-            networkProfile.ip_setting_data.mtu = originalMtu;
-            rc = nifmSetNetworkProfile(&networkProfile, &networkProfile.uuid);
-            if (R_FAILED(rc)) {
-                LogFormat("final nifmSetNetworkProfile failed: %x", rc);
+            else
+            {
+                networkProfile.ip_setting_data.mtu = originalMtu;
+                rc = nifmSetNetworkProfile(&networkProfile, &networkProfile.uuid);
+                if (R_FAILED(rc)) {
+                    LogFormat("final nifmSetNetworkProfile failed: %x", rc);
+                }
             }
+            
+            // release the held session from initialize()
+            NifmSessionManager::Release();
         }
 
         this->setState(CommState::None);
@@ -750,11 +775,19 @@ namespace ams::mitm::ldn {
             return 0;
         }
 
+        // acquire nifm session for the entire lifecycle of this network session
+        Result rc = NifmSessionManager::Acquire();
+        if (R_FAILED(rc)) {
+            LogFormat("initialize failed to acquire nifm session: %x", rc);
+            return rc;
+        }
+
         NifmNetworkProfileData networkProfile;
-        Result rc = nifmGetCurrentNetworkProfile(&networkProfile);
+        rc = nifmGetCurrentNetworkProfile(&networkProfile);
         if (R_FAILED(rc))
         {
             LogFormat("nifmGetCurrentNetworkProfile failed: %x", rc);
+            NifmSessionManager::Release();  // release on failure
             return rc;
         }
 
@@ -765,6 +798,7 @@ namespace ams::mitm::ldn {
         if (R_FAILED(rc))
         {
             LogFormat("nifmSetNetworkProfile failed: %x", rc);
+            NifmSessionManager::Release();  // release on failure
             return rc;
         }
 
@@ -772,12 +806,14 @@ namespace ams::mitm::ldn {
         if (R_FAILED(rc))
         {
             LogFormat("nifmCreateRequest failed: %x", rc);
+            NifmSessionManager::Release();  // release on failure
             return rc;
         }
 
         rc = nifmSetLocalNetworkMode(&request, true);
         if (R_FAILED(rc)) {
             LogFormat("nifmSetLocalNetworkMode failed %x", rc);
+            NifmSessionManager::Release();  // release on failure
             return rc;
         }
 
@@ -785,8 +821,11 @@ namespace ams::mitm::ldn {
         if (R_FAILED(rc))
         {
             LogFormat("nifmRequestSubmitAndWait failed: %x", rc);
+            NifmSessionManager::Release();  // release on failure
             return rc;
         }
+        
+        // nifm session is still held and will be released in finalize()
 
         for (auto &i : stations) {
             i.discovery = this;

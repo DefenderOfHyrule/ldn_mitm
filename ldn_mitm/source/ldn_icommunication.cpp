@@ -1,5 +1,6 @@
 #include "ldn_icommunication.hpp"
 #include <arpa/inet.h>
+#include "nifm_manager.hpp"
 
 namespace ams::mitm::ldn {
     static_assert(sizeof(NetworkInfo) == 0x480, "sizeof(NetworkInfo) should be 0x480");
@@ -83,8 +84,15 @@ namespace ams::mitm::ldn {
     }
 
     Result ICommunicationService::GetIpv4Address(sf::Out<u32> address, sf::Out<u32> netmask) {
+        ScopedNifmSession session;
+        Result rc = session.GetResult();
+        if (R_FAILED(rc)) {
+            LogFormat("GetIpv4Address failed to acquire nifm session: %x", rc);
+            return rc;
+        }
+
         u32 gateway, primary_dns, secondary_dns;
-        Result rc = nifmGetCurrentIpConfigInfo(address.GetPointer(), netmask.GetPointer(), &gateway, &primary_dns, &secondary_dns);
+        rc = nifmGetCurrentIpConfigInfo(address.GetPointer(), netmask.GetPointer(), &gateway, &primary_dns, &secondary_dns);
 
         address.SetValue(ntohl(address.GetValue()));
         netmask.SetValue(ntohl(netmask.GetValue()));
