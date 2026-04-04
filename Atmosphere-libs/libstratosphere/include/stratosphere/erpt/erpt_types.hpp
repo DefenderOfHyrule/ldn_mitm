@@ -23,7 +23,7 @@ namespace ams::erpt {
 
     #define GENERATE_ENUM(NAME, ID, ...) NAME = ID,
 
-    enum FieldType {
+    enum FieldType: u8 {
         AMS_ERPT_FOREACH_FIELD_TYPE(GENERATE_ENUM)
         FieldType_Count,
     };
@@ -111,6 +111,7 @@ namespace ams::erpt {
 
     struct CreateReportOptionFlag {
         using SubmitFsInfo = util::BitFlagSet<BITSIZEOF(u32), CreateReportOptionFlag>::Flag<0>;
+        using Unknown0x20000 = util::BitFlagSet<BITSIZEOF(u32), CreateReportOptionFlag>::Flag<17>; /* TODO: What is this, it's checked in Reporter::CreateReport or below */
     };
 
     using CreateReportOptionFlagSet = util::BitFlagSet<BITSIZEOF(u32), CreateReportOptionFlag>;
@@ -241,6 +242,35 @@ namespace ams::erpt {
         Str16    = 0xDA,
         Array16  = 0xDC,
         Map16    = 0xDE,
+    };
+
+    constexpr inline u32 ErrorCodeSizeMax = 15;
+    constexpr inline u32 ProgramIdSizeMax = 17;
+
+    struct NotifiableErrorCodeReportEntry {
+        char error_code[ErrorCodeSizeMax];
+        char program_id[ProgramIdSizeMax];
+        u8 is_visible;
+        u8 is_system_abort;
+        u8 is_application_abort;
+    };
+    static_assert(sizeof(NotifiableErrorCodeReportEntry) == 35);
+
+    struct NotifiableErrorCodesData : public sf::LargeData, public sf::PrefersAutoSelectTransferMode {
+        u32 entry_count;
+        NotifiableErrorCodeReportEntry entries[50];
+        char firmware_display_version[0x18];
+        char private_os_version[96];
+        char product_model[16];
+        char region_code[34];
+    };
+    static_assert(sizeof(NotifiableErrorCodesData) == 0x784);
+
+    struct SystemInfo {
+        char os_version[0x18];
+        char private_os_version[96];
+        char product_model[16];
+        const char *region;
     };
 
 }

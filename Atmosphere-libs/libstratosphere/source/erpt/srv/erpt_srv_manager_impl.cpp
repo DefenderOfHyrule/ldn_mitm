@@ -16,6 +16,7 @@
 #include <stratosphere.hpp>
 #include "erpt_srv_manager_impl.hpp"
 #include "erpt_srv_journal.hpp"
+#include "erpt_srv_notifiable_errors.hpp"
 
 namespace ams::erpt::srv {
 
@@ -59,6 +60,7 @@ namespace ams::erpt::srv {
     Result ManagerImpl::CleanupReports() {
         Journal::CleanupReports();
         Journal::CleanupAttachments();
+        NotifiableErrorCodeReport::Clear();
         R_RETURN(Journal::Commit());
     }
 
@@ -103,5 +105,11 @@ namespace ams::erpt::srv {
         *out = ReportSizeMax;
         R_SUCCEED();
     }
+
+    Result ManagerImpl::PopNotifiableErrorCodes(ams::sf::Out<NotifiableErrorCodesData> out) {
+        NotifiableErrorCodeReport::PopNotifiableErrorCodes(out.GetPointer());
+        R_SUCCEED();
+    }
+
 
 }
