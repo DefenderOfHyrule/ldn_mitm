@@ -30,30 +30,36 @@ namespace ams::kern {
             { 36, ams::svc::AddressLargeMap36Start, ams::svc::AddressLargeMap36Size,          KAddressSpaceInfo::Type_MapLarge, },
             { 36, Invalid,                          ams::svc::AddressMemoryRegionHeap36Size,  KAddressSpaceInfo::Type_Heap,     },
             { 36, Invalid,                          ams::svc::AddressMemoryRegionAlias36Size, KAddressSpaceInfo::Type_Alias,    },
-            { 39, ams::svc::AddressMap39Start,      ams::svc::AddressMap39Size,               KAddressSpaceInfo::Type_Map39Bit, },
+            { 39, ams::svc::AddressMap39Start,      ams::svc::AddressMap39Size,               KAddressSpaceInfo::Type_MapHuge,  },
             { 39, Invalid,                          ams::svc::AddressMemoryRegionSmall39Size, KAddressSpaceInfo::Type_MapSmall, },
             { 39, Invalid,                          ams::svc::AddressMemoryRegionHeap39Size,  KAddressSpaceInfo::Type_Heap,     },
             { 39, Invalid,                          ams::svc::AddressMemoryRegionAlias39Size, KAddressSpaceInfo::Type_Alias,    },
             { 39, Invalid,                          ams::svc::AddressMemoryRegionStack39Size, KAddressSpaceInfo::Type_Stack,    },
+            { 42, ams::svc::AddressMap42Start,      ams::svc::AddressMap42Size,               KAddressSpaceInfo::Type_MapHuge,  },
+            { 42, Invalid,                          ams::svc::AddressMemoryRegionSmall42Size, KAddressSpaceInfo::Type_MapSmall, },
+            { 42, Invalid,                          0,                                        KAddressSpaceInfo::Type_Heap,     },
+            { 42, Invalid,                          ams::svc::AddressMemoryRegionAlias42Size, KAddressSpaceInfo::Type_Alias,    },
+            { 42, Invalid,                          ams::svc::AddressMemoryRegionStack42Size, KAddressSpaceInfo::Type_Stack,    },
         };
 
-        constexpr u8 FlagsToAddressSpaceWidthTable[4] = {
-            32, 36, 32, 39
+        constexpr u8 FlagsToAddressSpaceWidthTable[5] = {
+            32, 36, 32, 39, 42
         };
 
-        constexpr size_t GetAddressSpaceWidth(ams::svc::CreateProcessFlag flags) {
+        constexpr size_t GetAddressSpaceWidth(ams::svc::CreateProcessParameterFlag flags) {
             /* Convert the input flags to an array index. */
-            const size_t idx = (flags & ams::svc::CreateProcessFlag_AddressSpaceMask) >> ams::svc::CreateProcessFlag_AddressSpaceShift;
+            const size_t idx = (flags & ams::svc::CreateProcessParameterFlag_AddressSpaceMask) >> ams::svc::CreateProcessParameterFlag_AddressSpaceShift;
             MESOSPHERE_ABORT_UNLESS(idx < sizeof(FlagsToAddressSpaceWidthTable));
 
             /* Return the width. */
             return FlagsToAddressSpaceWidthTable[idx];
         }
 
-        static_assert(GetAddressSpaceWidth(ams::svc::CreateProcessFlag_AddressSpace32Bit) == 32);
-        static_assert(GetAddressSpaceWidth(ams::svc::CreateProcessFlag_AddressSpace64BitDeprecated) == 36);
-        static_assert(GetAddressSpaceWidth(ams::svc::CreateProcessFlag_AddressSpace32BitWithoutAlias) == 32);
-        static_assert(GetAddressSpaceWidth(ams::svc::CreateProcessFlag_AddressSpace64Bit) == 39);
+        static_assert(GetAddressSpaceWidth(ams::svc::CreateProcessParameterFlag_AddressSpace32Bit) == 32);
+        static_assert(GetAddressSpaceWidth(ams::svc::CreateProcessParameterFlag_AddressSpace64Bit36) == 36);
+        static_assert(GetAddressSpaceWidth(ams::svc::CreateProcessParameterFlag_AddressSpace32BitNoReserved) == 32);
+        static_assert(GetAddressSpaceWidth(ams::svc::CreateProcessParameterFlag_AddressSpace64Bit39) == 39);
+        static_assert(GetAddressSpaceWidth(ams::svc::CreateProcessParameterFlag_AddressSpace64Bit42) == 42);
 
         KAddressSpaceInfo &GetAddressSpaceInfo(size_t width, KAddressSpaceInfo::Type type) {
             for (auto &info : AddressSpaceInfos) {
@@ -66,14 +72,14 @@ namespace ams::kern {
 
     }
 
-    uintptr_t KAddressSpaceInfo::GetAddressSpaceStart(ams::svc::CreateProcessFlag flags, KAddressSpaceInfo::Type type, size_t code_size) {
+    uintptr_t KAddressSpaceInfo::GetAddressSpaceStart(ams::svc::CreateProcessParameterFlag flags, KAddressSpaceInfo::Type type, size_t code_size) {
         MESOSPHERE_UNUSED(code_size);
         return GetAddressSpaceInfo(GetAddressSpaceWidth(flags), type).GetAddress();
     }
 
-    size_t KAddressSpaceInfo::GetAddressSpaceSize(ams::svc::CreateProcessFlag flags, KAddressSpaceInfo::Type type) {
+    size_t KAddressSpaceInfo::GetAddressSpaceSize(ams::svc::CreateProcessParameterFlag flags, KAddressSpaceInfo::Type type) {
         /* Extract the address space from the create process flags. */
-        const auto as_flags = (flags & ams::svc::CreateProcessFlag_AddressSpaceMask);
+        const auto as_flags = (flags & ams::svc::CreateProcessParameterFlag_AddressSpaceMask);
 
         /* Get the address space width. */
         const auto as_width = GetAddressSpaceWidth(flags);
@@ -82,7 +88,7 @@ namespace ams::kern {
         size_t as_size = GetAddressSpaceInfo(as_width, type).GetSize();
 
         /* If we're getting size for 32-bit without alias, adjust the sizes accordingly. */
-        if (as_flags == ams::svc::CreateProcessFlag_AddressSpace32BitWithoutAlias) {
+        if (as_flags == ams::svc::CreateProcessParameterFlag_AddressSpace32BitNoReserved) {
             switch (type) {
                 /* The heap space receives space that would otherwise go to the alias space. */
                 case KAddressSpaceInfo::Type_Heap:

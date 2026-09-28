@@ -19,6 +19,7 @@
 #include <mesosphere/kern_k_page_table_base.hpp>
 #include <mesosphere/kern_k_page_group.hpp>
 #include <mesosphere/kern_k_page_table_manager.hpp>
+#include <mesosphere/init/kern_init_slab_setup.hpp>
 
 namespace ams::kern::arch::arm64 {
 
@@ -94,10 +95,10 @@ namespace ams::kern::arch::arm64 {
                 return KPageTable::GetBlockSize(static_cast<KPageTable::BlockType>(KPageTable::GetBlockType(alignment) + 1));
             }
         public:
-            /* TODO: How should this size be determined. Does the KProcess slab count need to go in a header as a define? */
-            static constexpr size_t NumTtbr0Entries = 81;
+            static constexpr size_t NumPTEntries = ::ams::kern::init::SlabCountKProcess + 1; /* +1 for kernel. */
         private:
-            static constinit inline const volatile u64 s_ttbr0_entries[NumTtbr0Entries] = {};
+            static constinit inline const volatile u64 s_ttbr0_entries[NumPTEntries] = {};
+            static constinit inline const volatile u64 s_tcr_el1_entries[NumPTEntries] = {};
         private:
             KPageTableManager *m_manager;
             u8 m_asid;
@@ -188,6 +189,12 @@ namespace ams::kern::arch::arm64 {
                 return s_ttbr0_entries[0];
             }
 
+            static const volatile u64 &GetTcrEL1Entry(size_t index) { return s_tcr_el1_entries[index]; }
+
+            static ALWAYS_INLINE u64 GetKernelTcrEL1() {
+                return s_tcr_el1_entries[0];
+            }
+
             static ALWAYS_INLINE void ActivateKernel() {
                 /* Activate, using asid 0 and process id = 0xFFFFFFFF */
                 cpu::SwitchProcess(GetKernelTtbr0(), 0xFFFFFFFF);
@@ -198,7 +205,7 @@ namespace ams::kern::arch::arm64 {
             }
 
             NOINLINE void InitializeForKernel(void *table, KVirtualAddress start, KVirtualAddress end);
-            NOINLINE Result InitializeForProcess(ams::svc::CreateProcessFlag flags, bool from_back, KMemoryManager::Pool pool, KProcessAddress code_address, size_t code_size, KSystemResource *system_resource, KResourceLimit *resource_limit, size_t process_index);
+            NOINLINE Result InitializeForProcess(ams::svc::CreateProcessParameterFlag flags, bool from_back, KMemoryManager::Pool pool, KProcessAddress code_address, size_t code_size, KSystemResource *system_resource, KResourceLimit *resource_limit, size_t process_index);
             void Finalize();
 
             static void NoteUpdatedCallback(const void *pt) {

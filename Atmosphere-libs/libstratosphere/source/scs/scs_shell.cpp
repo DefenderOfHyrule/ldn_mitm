@@ -279,11 +279,11 @@ namespace ams::scs {
         void EventHandlerThread(void *) {
             /* Get event observer. */
             pgl::EventObserver observer;
-            R_ABORT_UNLESS(pgl::GetEventObserver(std::addressof(observer)));
+            R_ABORT_UNLESS(pgl::CreateShellEvent(std::addressof(observer)));
 
             /* Get the observer's event. */
             os::SystemEventType shell_event;
-            R_ABORT_UNLESS(observer.GetSystemEvent(std::addressof(shell_event)));
+            R_ABORT_UNLESS(observer.GetShellEvent(std::addressof(shell_event)));
 
             /* Loop handling events. */
             while (true) {
@@ -294,7 +294,7 @@ namespace ams::scs {
                 while (true) {
                     /* Get the next event info. */
                     pm::ProcessEventInfo event_info;
-                    if (R_FAILED(observer.GetProcessEventInfo(std::addressof(event_info)))) {
+                    if (R_FAILED(observer.GetShellEventInfo(std::addressof(event_info)))) {
                         break;
                     }
 
@@ -344,7 +344,7 @@ namespace ams::scs {
 
         void FlushProgramArgument(ncm::ProgramId program_id) {
             /* Ensure there are no arguments for the program. */
-            ldr::SetProgramArgument(program_id, "", 1);
+            R_DISCARD(ldr::SetProgramArgument(program_id, "", 1));
         }
 
     }
@@ -382,7 +382,7 @@ namespace ams::scs {
 
     Result LaunchProgram(os::ProcessId *out, const ncm::ProgramLocation &loc, const void *args, size_t args_size, u32 process_flags) {
         /* Set up the arguments. */
-        PrepareToLaunchProgram(loc.program_id, args, args_size);
+        R_DISCARD(PrepareToLaunchProgram(loc.program_id, args, args_size));
 
         /* Ensure arguments are managed correctly. */
         ON_SCOPE_EXIT { FlushProgramArgument(loc.program_id); };

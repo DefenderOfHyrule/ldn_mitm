@@ -24,7 +24,7 @@ namespace ams::kern {
             enum Type {
                 Type_MapSmall   = 0,
                 Type_MapLarge   = 1,
-                Type_Map39Bit   = 2,
+                Type_MapHuge    = 2,
                 Type_Heap       = 3,
                 Type_Stack      = 4,
                 Type_Alias      = 5,
@@ -37,8 +37,8 @@ namespace ams::kern {
             size_t m_size;
             Type m_type;
         public:
-            static uintptr_t GetAddressSpaceStart(ams::svc::CreateProcessFlag flags, Type type, size_t code_size);
-            static size_t GetAddressSpaceSize(ams::svc::CreateProcessFlag flags, Type type);
+            static uintptr_t GetAddressSpaceStart(ams::svc::CreateProcessParameterFlag flags, Type type, size_t code_size);
+            static size_t GetAddressSpaceSize(ams::svc::CreateProcessParameterFlag flags, Type type);
 
             static void SetAddressSpaceSize(size_t width, Type type, size_t size);
 

@@ -100,8 +100,8 @@ namespace ams::kern {
         KProcessPageTable &target_pt   = process->GetPageTable();
 
         /* Verify that the regions are in range. */
-        R_UNLESS(target_pt.Contains(address, size),  svc::ResultInvalidCurrentMemory());
-        R_UNLESS(debugger_pt.Contains(buffer, size), svc::ResultInvalidCurrentMemory());
+        R_UNLESS(target_pt.Contains(address, size),           svc::ResultInvalidCurrentMemory());
+        R_UNLESS(debugger_pt.IsSafeUserPointer(buffer, size), svc::ResultInvalidCurrentMemory());
 
         /* Iterate over the target process's memory blocks. */
         KProcessAddress cur_address = address;
@@ -166,8 +166,8 @@ namespace ams::kern {
         KProcessPageTable &target_pt   = process->GetPageTable();
 
         /* Verify that the regions are in range. */
-        R_UNLESS(target_pt.Contains(address, size),  svc::ResultInvalidCurrentMemory());
-        R_UNLESS(debugger_pt.Contains(buffer, size), svc::ResultInvalidCurrentMemory());
+        R_UNLESS(target_pt.Contains(address, size),           svc::ResultInvalidCurrentMemory());
+        R_UNLESS(debugger_pt.IsSafeUserPointer(buffer, size), svc::ResultInvalidCurrentMemory());
 
         /* Iterate over the target process's memory blocks. */
         KProcessAddress cur_address = address;
@@ -417,7 +417,7 @@ namespace ams::kern {
 
         /* Terminate the process. */
         /* NOTE: This result is seemingly-intentionally not checked by Nintendo. */
-        static_cast<void>(target->Terminate());
+        static_cast<void>(target->Terminate(-1ll));
 
         R_SUCCEED();
     }
@@ -884,7 +884,7 @@ namespace ams::kern {
                 {
                     out->info.create_process.program_id                     = process->GetProgramId();
                     out->info.create_process.process_id                     = process->GetId();
-                    out->info.create_process.flags                          = process->GetCreateProcessFlags();
+                    out->info.create_process.flags                          = process->GetCreateProcessParameterFlags();
                     out->info.create_process.user_exception_context_address = GetInteger(process->GetProcessLocalRegionAddress());
 
                     std::memcpy(out->info.create_process.name, process->GetName(), sizeof(out->info.create_process.name));

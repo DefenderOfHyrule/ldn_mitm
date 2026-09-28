@@ -28,6 +28,8 @@ namespace ams::kern {
         } else {
             /* Allocate dynamic mappings as necessary. */
             if (m_dynamic_mappings == nullptr) {
+                /* 23.0.0+ now checks for IsDynamicResourceLimitsEnabled before allocating from slab heap. */
+                R_UNLESS(KTargetSystem::IsDynamicResourceLimitsEnabled(), svc::ResultOutOfMemory());
                 m_dynamic_mappings = DynamicMappings::Allocate();
                 R_UNLESS(m_dynamic_mappings != nullptr, svc::ResultOutOfMemory());
             }
@@ -44,16 +46,19 @@ namespace ams::kern {
     Result KSessionRequest::SessionMappings::PushSend(KProcessAddress client, KProcessAddress server, size_t size, KMemoryState state) {
         MESOSPHERE_ASSERT(m_num_recv == 0);
         MESOSPHERE_ASSERT(m_num_exch == 0);
-        R_RETURN(this->PushMap(client, server, size, state, m_num_send++));
+        ON_RESULT_SUCCESS { ++m_num_send; };
+        R_RETURN(this->PushMap(client, server, size, state, m_num_send));
     }
 
     Result KSessionRequest::SessionMappings::PushReceive(KProcessAddress client, KProcessAddress server, size_t size, KMemoryState state) {
         MESOSPHERE_ASSERT(m_num_exch == 0);
-        R_RETURN(this->PushMap(client, server, size, state, m_num_send + m_num_recv++));
+        ON_RESULT_SUCCESS { ++m_num_recv; };
+        R_RETURN(this->PushMap(client, server, size, state, m_num_send + m_num_recv));
     }
 
     Result KSessionRequest::SessionMappings::PushExchange(KProcessAddress client, KProcessAddress server, size_t size, KMemoryState state) {
-        R_RETURN(this->PushMap(client, server, size, state, m_num_send + m_num_recv + m_num_exch++));
+        ON_RESULT_SUCCESS { ++m_num_exch; };
+        R_RETURN(this->PushMap(client, server, size, state, m_num_send + m_num_recv + m_num_exch));
     }
 
     void KSessionRequest::SessionMappings::Finalize() {

@@ -14,7 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <stratosphere.hpp>
-#include "spl_ctr_drbg.hpp"
+#include <vapours/crypto/impl/crypto_ctr_drbg.hpp>
 #include "spl_device_address_mapper.hpp"
 #include "spl_key_slot_cache.hpp"
 
@@ -29,7 +29,7 @@ namespace ams::spl::impl {
     namespace {
 
         /* Drbg type. */
-        using Drbg = CtrDrbg<crypto::AesEncryptor128, AesKeySize, false>;
+        using Drbg = crypto::impl::CtrDrbg<crypto::AesEncryptor128, AesKeySize, false>;
 
         /* Convenient defines. */
         #if defined(ATMOSPHERE_OS_HORIZON)
@@ -178,7 +178,7 @@ namespace ams::spl::impl {
                 }
                 ~ScopedAesKeySlot() {
                     if (m_allocated) {
-                        DeallocateAesKeySlot(m_slot_index);
+                        R_DISCARD(DeallocateAesKeySlot(m_slot_index));
                     }
                 }
 
@@ -226,7 +226,7 @@ namespace ams::spl::impl {
         void InitializeAsyncOperation() {
             #if defined(ATMOSPHERE_OS_HORIZON)
             u64 interrupt_number;
-            impl::GetConfig(std::addressof(interrupt_number), ConfigItem::SecurityEngineInterruptNumber);
+            R_DISCARD(impl::GetConfig(std::addressof(interrupt_number), ConfigItem::SecurityEngineInterruptNumber));
             g_interrupt_name = static_cast<os::InterruptName>(interrupt_number);
 
             os::InitializeInterruptEvent(std::addressof(g_interrupt), g_interrupt_name, os::EventClearMode_AutoClear);

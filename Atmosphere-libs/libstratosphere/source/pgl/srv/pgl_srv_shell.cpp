@@ -85,7 +85,7 @@ namespace ams::pgl::srv {
             }
         }
 
-        util::optional<os::ProcessId> GetRunningApplicationProcessId() {
+        util::optional<os::ProcessId> GetRunningApplicationProcessIdInternal() {
             os::ProcessId process_id;
             if (R_SUCCEEDED(pm::shell::GetApplicationProcessIdForShell(std::addressof(process_id)))) {
                 return process_id;
@@ -173,7 +173,7 @@ namespace ams::pgl::srv {
         }
 
         void TriggerSnapShotDumper(os::ProcessId process_id) {
-            TriggerSnapShotDumper(process_id, GetSnapShotDumpType(), nullptr);
+            R_DISCARD(TriggerSnapShotDumper(process_id, GetSnapShotDumpType(), nullptr));
         }
 
         s32 GetCrashReportDetailedArgument(u32 data_flags) {
@@ -195,8 +195,8 @@ namespace ams::pgl::srv {
         void TriggerCrashReport(os::ProcessId process_id) {
             /* If the program that crashed is creport, we should just terminate both processes and return. */
             if (process_id == g_creport_process_id) {
-                TerminateProcess(g_crashed_process_id);
-                TerminateProcess(g_creport_process_id);
+                R_DISCARD(TerminateProcess(g_crashed_process_id));
+                R_DISCARD(TerminateProcess(g_creport_process_id));
                 g_crashed_process_id = os::InvalidProcessId;
                 g_creport_process_id = os::InvalidProcessId;
                 return;
@@ -244,7 +244,7 @@ namespace ams::pgl::srv {
                 if (data != nullptr) {
                     TriggerSnapShotDumper(process_id);
                 } else {
-                    TerminateProcess(process_id);
+                    R_DISCARD(TerminateProcess(process_id));
                 }
             } else {
                 /* Otherwise, we want to launch creport. */
@@ -403,9 +403,9 @@ namespace ams::pgl::srv {
         R_RETURN(pm::shell::TerminateProcess(process_id));
     }
 
-    Result GetApplicationProcessId(os::ProcessId *out) {
-        /* Get the application process id. */
-        auto application_process_id = GetRunningApplicationProcessId();
+    Result GetRunningApplicationProcessId(os::ProcessId *out) {
+        /* Get the running application process id. */
+        auto application_process_id = GetRunningApplicationProcessIdInternal();
         R_UNLESS(application_process_id, pgl::ResultApplicationNotRunning());
 
         /* Return the id. */
@@ -418,7 +418,7 @@ namespace ams::pgl::srv {
         R_RETURN(pm::shell::BoostSystemMemoryResourceLimit(size));
     }
 
-    bool IsProcessTracked(os::ProcessId process_id) {
+    bool IsRunningProcess(os::ProcessId process_id) {
         /* Check whether a ProcessData exists for the process. */
         std::scoped_lock lk(g_process_data_mutex);
         return FindProcessData(process_id) != nullptr;
@@ -426,7 +426,7 @@ namespace ams::pgl::srv {
 
     void EnableApplicationCrashReport(bool enabled) {
         /* Get the application process id. */
-        auto application_process_id = GetRunningApplicationProcessId();
+        auto application_process_id = GetRunningApplicationProcessIdInternal();
         if (application_process_id) {
             /* Find the data for the application process. */
             std::scoped_lock lk(g_process_data_mutex);
@@ -446,7 +446,7 @@ namespace ams::pgl::srv {
 
     bool IsApplicationCrashReportEnabled() {
         /* Get the application process id. */
-        auto application_process_id = GetRunningApplicationProcessId();
+        auto application_process_id = GetRunningApplicationProcessIdInternal();
         if (!application_process_id) {
             return false;
         }
@@ -462,7 +462,7 @@ namespace ams::pgl::srv {
 
     void EnableApplicationAllThreadDumpOnCrash(bool enabled) {
         /* Get the application process id. */
-        auto application_process_id = GetRunningApplicationProcessId();
+        auto application_process_id = GetRunningApplicationProcessIdInternal();
         if (application_process_id) {
             /* Find the data for the application process. */
             std::scoped_lock lk(g_process_data_mutex);
@@ -486,7 +486,7 @@ namespace ams::pgl::srv {
         }
     }
 
-    Result TriggerApplicationSnapShotDumper(SnapShotDumpType dump_type, const char *arg) {
+    Result TriggerSnapShotDumper(SnapShotDumpType dump_type, const char *arg) {
         /* Try to get the application process id. */
         os::ProcessId process_id;
         R_TRY(pm::shell::GetApplicationProcessIdForShell(std::addressof(process_id)));
@@ -495,5 +495,21 @@ namespace ams::pgl::srv {
         ON_SCOPE_EXIT { g_ssd_process_id = os::InvalidProcessId; };
         R_RETURN(TriggerSnapShotDumper(process_id, dump_type, arg));
     }
+    
+    void EnableApplicationCrashReport2(os::ProcessId process_id, bool enabled) {
+        /* Find the data for the process. */
+        std::scoped_lock lk(g_process_data_mutex);
+        ProcessData *data = FindProcessData(process_id);
 
+        /* It's okay if we aren't tracking the process. */
+        if (data != nullptr) {
+            /* Set or clear the flag. */
+            if (enabled) {
+                data->flags |= ProcessDataFlag_DetailedCrashReportEnabled;
+            } else {
+                data->flags &= ~ProcessDataFlag_DetailedCrashReportEnabled;
+            }
+        }
+    }
+    
 }

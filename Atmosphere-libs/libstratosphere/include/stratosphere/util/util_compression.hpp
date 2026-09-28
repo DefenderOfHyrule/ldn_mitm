@@ -18,14 +18,19 @@
 #include <vapours.hpp>
 
 namespace ams::util {
+    
+    constexpr size_t DecompressZstdWithBicWorkBufferSizeDefault = 0x176E8;
 
     /* Compression utilities. */
     int CompressLZ4(void *dst, size_t dst_size, const void *src, size_t src_size);
     size_t CompressZstd(void *dst, size_t dst_size, const void *src, size_t src_size);
+    size_t CompressZstdWithBic(void *dst, size_t dst_size, const void *src, size_t src_size);
 
     /* Decompression utilities. */
     int DecompressLZ4(void *dst, size_t dst_size, const void *src, size_t src_size);
+    int DecompressLZ4Frame(size_t* out_size, void *dst, size_t dst_size, const void *src, size_t src_size, void *src_work, size_t src_work_size, void *dst_work, size_t dst_work_size);
     size_t DecompressZstd(void *dst, size_t dst_size, const void *src, size_t src_size);
-    bool DecompressZstdForLoader(void* workspace, size_t workspace_size, void *dst, size_t dst_size, size_t expected_dec_size, const void *src, size_t src_size);
+    size_t DecompressZstdWithBic(void *dst, size_t dst_size, const void *src, size_t src_size);
+    bool DecompressZstdWithBic(void* workspace, size_t workspace_size, void *dst, size_t dst_size, size_t expected_dec_size, const void *src, size_t src_size);
 
 }

@@ -96,6 +96,8 @@ namespace ams::svc {
         MemoryState_CodeOut          = 0x15,
         MemoryState_Coverage         = 0x16,
         MemoryState_Insecure         = 0x17,
+        /* ... */
+        MemoryState_ShadowStack      = 0x1A,
     };
 
     enum MemoryPermission : u32 {
@@ -191,8 +193,16 @@ namespace ams::svc {
         InfoType_IsSvcPermitted                 = 26,
         InfoType_IoRegionHint                   = 27,
         InfoType_AliasRegionExtraSize           = 28,
-        /* ... */
+        InfoType_RemoteRegionAddress            = 29,
+        InfoType_RemoteRegionSize               = 30,
+        InfoType_RemoteMemorySize               = 31,
+        InfoType_RemoteMemoryUsageMax           = 32,
+        InfoType_AllocateAlignment              = 33,
         InfoType_TransferMemoryHint             = 34,
+        /* ... */
+        InfoType_AddressSpaceSize               = 36,
+        InfoType_ShadowStackRegionAddress       = 37,
+        InfoType_ShadowStackRegionSize          = 38,
 
         InfoType_MesosphereMeta                 = 65000,
         InfoType_MesosphereCurrentProcess       = 65001,
@@ -378,6 +388,7 @@ namespace ams::svc {
     /* Process types. */
     enum ProcessInfoType : u32 {
         ProcessInfoType_ProcessState = 0,
+        ProcessInfoType_Unknown1     = 1,
     };
 
     enum ProcessState : u32 {
@@ -402,57 +413,62 @@ namespace ams::svc {
         ProcessActivity_Paused   = 1,
     };
 
-    enum CreateProcessFlag : u32 {
+    enum CreateProcessParameterFlag : u32 {
         /* Is 64 bit? */
-        CreateProcessFlag_Is64Bit       = (1 << 0),
+        CreateProcessParameterFlag_64Bit                          = (1 << 0),
 
         /* What kind of address space? */
-        CreateProcessFlag_AddressSpaceShift             = 1,
-        CreateProcessFlag_AddressSpaceMask              = (7 << CreateProcessFlag_AddressSpaceShift),
-        CreateProcessFlag_AddressSpace32Bit             = (0 << CreateProcessFlag_AddressSpaceShift),
-        CreateProcessFlag_AddressSpace64BitDeprecated   = (1 << CreateProcessFlag_AddressSpaceShift),
-        CreateProcessFlag_AddressSpace32BitWithoutAlias = (2 << CreateProcessFlag_AddressSpaceShift),
-        CreateProcessFlag_AddressSpace64Bit             = (3 << CreateProcessFlag_AddressSpaceShift),
+        CreateProcessParameterFlag_AddressSpaceShift              = 1,
+        CreateProcessParameterFlag_AddressSpaceMask               = (7 << CreateProcessParameterFlag_AddressSpaceShift), /* Should be 15 but Nintendo didn't make 64K usable yet */
+        CreateProcessParameterFlag_AddressSpace32Bit              = (0 << CreateProcessParameterFlag_AddressSpaceShift),
+        CreateProcessParameterFlag_AddressSpace64Bit36            = (1 << CreateProcessParameterFlag_AddressSpaceShift),
+        CreateProcessParameterFlag_AddressSpace32BitNoReserved    = (2 << CreateProcessParameterFlag_AddressSpaceShift),
+        CreateProcessParameterFlag_AddressSpace64Bit39            = (3 << CreateProcessParameterFlag_AddressSpaceShift),
+        CreateProcessParameterFlag_AddressSpace64Bit42            = (4 << CreateProcessParameterFlag_AddressSpaceShift),
 
         /* Should JIT debug be done on crash? */
-        CreateProcessFlag_EnableDebug   = (1 << 4),
+        CreateProcessParameterFlag_EnableJitDebug                 = (1 << 4),
 
         /* Should ASLR be enabled for the process? */
-        CreateProcessFlag_EnableAslr    = (1 << 5),
+        CreateProcessParameterFlag_EnableAslr                     = (1 << 5),
 
         /* Is the process an application? */
-        CreateProcessFlag_IsApplication = (1 << 6),
+        CreateProcessParameterFlag_IsApplication                  = (1 << 6),
 
         /* 4.x deprecated: Should use secure memory? */
-        CreateProcessFlag_DeprecatedUseSecureMemory = (1 << 7),
+        CreateProcessParameterFlag_DeprecatedUseSecureMemory      = (1 << 7),
 
         /* 5.x+ Pool partition type. */
-        CreateProcessFlag_PoolPartitionShift            = 7,
-        CreateProcessFlag_PoolPartitionMask             = (0xF << CreateProcessFlag_PoolPartitionShift),
-        CreateProcessFlag_PoolPartitionApplication      = (0 << CreateProcessFlag_PoolPartitionShift),
-        CreateProcessFlag_PoolPartitionApplet           = (1 << CreateProcessFlag_PoolPartitionShift),
-        CreateProcessFlag_PoolPartitionSystem           = (2 << CreateProcessFlag_PoolPartitionShift),
-        CreateProcessFlag_PoolPartitionSystemNonSecure  = (3 << CreateProcessFlag_PoolPartitionShift),
+        CreateProcessParameterFlag_PoolPartitionShift             = 7,
+        CreateProcessParameterFlag_PoolPartitionMask              = (0xF << CreateProcessParameterFlag_PoolPartitionShift),
+        CreateProcessParameterFlag_PoolPartitionApplication       = (0 << CreateProcessParameterFlag_PoolPartitionShift),
+        CreateProcessParameterFlag_PoolPartitionApplet            = (1 << CreateProcessParameterFlag_PoolPartitionShift),
+        CreateProcessParameterFlag_PoolPartitionSystem            = (2 << CreateProcessParameterFlag_PoolPartitionShift),
+        CreateProcessParameterFlag_PoolPartitionSystemNonSecure   = (3 << CreateProcessParameterFlag_PoolPartitionShift),
 
         /* 7.x+ Should memory allocation be optimized? This requires IsApplication. */
-        CreateProcessFlag_OptimizeMemoryAllocation = (1 << 11),
+        CreateProcessParameterFlag_OptimizeMemoryAllocation       = (1 << 11),
 
         /* 11.x+ DisableDeviceAddressSpaceMerge. */
-        CreateProcessFlag_DisableDeviceAddressSpaceMerge = (1 << 12),
+        CreateProcessParameterFlag_DisableDeviceAddressSpaceMerge = (1 << 12),
 
-        /* 18.x EnableAliasRegionExtraSize. */
-        CreateProcessFlag_EnableAliasRegionExtraSize = (1 << 13),
+        /* 18.x EnableAddressSanitizer. */
+        CreateProcessParameterFlag_EnableAddressSanitizer         = (1 << 13),
+
+        /* 23.x EnableShadowStack. */
+        CreateProcessParameterFlag_EnableShadowStack              = (1 << 17),
 
         /* Mask of all flags. */
-        CreateProcessFlag_All = CreateProcessFlag_Is64Bit                        |
-                                CreateProcessFlag_AddressSpaceMask               |
-                                CreateProcessFlag_EnableDebug                    |
-                                CreateProcessFlag_EnableAslr                     |
-                                CreateProcessFlag_IsApplication                  |
-                                CreateProcessFlag_PoolPartitionMask              |
-                                CreateProcessFlag_OptimizeMemoryAllocation       |
-                                CreateProcessFlag_DisableDeviceAddressSpaceMerge |
-                                CreateProcessFlag_EnableAliasRegionExtraSize,
+        CreateProcessParameterFlag_All = CreateProcessParameterFlag_64Bit                 |
+                                CreateProcessParameterFlag_AddressSpaceMask               |
+                                CreateProcessParameterFlag_EnableJitDebug                 |
+                                CreateProcessParameterFlag_EnableAslr                     |
+                                CreateProcessParameterFlag_IsApplication                  |
+                                CreateProcessParameterFlag_PoolPartitionMask              |
+                                CreateProcessParameterFlag_OptimizeMemoryAllocation       |
+                                CreateProcessParameterFlag_DisableDeviceAddressSpaceMerge |
+                                CreateProcessParameterFlag_EnableAddressSanitizer         |
+                                CreateProcessParameterFlag_EnableShadowStack,
     };
 
     /* Debug types. */
@@ -470,6 +486,7 @@ namespace ams::svc {
         DebugThreadParam_IdealCore    = 2,
         DebugThreadParam_CurrentCore  = 3,
         DebugThreadParam_AffinityMask = 4,
+        DebugThreadParam_Unknown5     = 5,
     };
 
     enum DebugException : u32 {
